@@ -5,7 +5,11 @@ const dns = require('dns');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['https://abner1986.github.io', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Force IPv4 lookup to avoid DNS issues
