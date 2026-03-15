@@ -1,0 +1,111 @@
+.radiology-cpt {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.radiology-cpt h1 {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+.cpt-search {
+  display: flex;
+  gap: 1rem;
+  margin: 2rem 0;
+  align-items: center;
+}
+
+.cpt-search input {
+  flex: 1;
+  padding: 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.cpt-search input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.result-count {
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.cpt-table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow-x: auto;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.cpt-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.cpt-table th {
+  background: #f7fafc;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  position: sticky;
+  top: 0;
+  background: #f7fafc;
+  z-index: 10;
+}
+
+.cpt-table td {
+  padding: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.cpt-table tr:hover {
+  background: #f7fafc;
+}
+
+.cpt-code {
+  font-family: monospace;
+  font-weight: 600;
+  color: #667eea;
+  background: #ebf4ff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.deny-rate {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.deny-rate.low {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.deny-rate.medium {
+  background: #feebc8;
+  color: #744210;
+}
+
+.deny-rate.high {
+  background: #fed7d7;
+  color: #742a2a;
+}
+
+.denial-tag {
+  display: inline-block;
+  background: #e2e8f0;
+  color: #4a5568;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin: 0.25rem;
+}

@@ -1,0 +1,154 @@
+.payer-rules {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.payer-rules h1 {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+.payer-selector {
+  margin: 2rem 0;
+}
+
+.payer-selector select {
+  width: 100%;
+  max-width: 400px;
+  padding: 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: white;
+  cursor: pointer;
+}
+
+.payer-selector select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.payer-info {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.payer-info h2 {
+  color: #2d3748;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.info-item {
+  padding: 1rem;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.info-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.rules-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.rules-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.rules-header h3 {
+  color: #2d3748;
+  margin: 0;
+}
+
+.rules-search {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  width: 250px;
+}
+
+.rules-search:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.rule-card {
+  padding: 1.5rem;
+  background: #f7fafc;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.rule-category {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #667eea;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.rule-text {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.rule-carcs {
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.quick-tips {
+  background: #ebf8ff;
+  padding: 2rem;
+  border-radius: 8px;
+  border-left: 4px solid #4299e1;
+}
+
+.quick-tips h3 {
+  color: #2c5282;
+  margin-bottom: 1rem;
+}
+
+.quick-tips ul {
+  margin-left: 1.5rem;
+  color: #2d3748;
+}
+
+.quick-tips li {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+
+.no-rules {
+  text-align: center;
+  color: #a0aec0;
+  padding: 2rem;
+}

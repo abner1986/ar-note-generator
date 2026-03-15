@@ -1,0 +1,49 @@
+.workflow-renderer {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.live-preview {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: 2px solid #e2e8f0;
+}
+
+.live-preview h3 {
+  color: #2d3748;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.live-preview h3::before {
+  content: '👁️';
+  font-size: 1.2rem;
+}
+
+.preview-box {
+  background: #f7fafc;
+  padding: 1.5rem;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #2d3748;
+  border-left: 4px solid #667eea;
+  white-space: pre-wrap;
+  min-height: 150px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* When preview is empty */
+.preview-box:empty::before {
+  content: 'Fill out the form to generate your note...';
+  color: #a0aec0;
+  font-style: italic;
+}

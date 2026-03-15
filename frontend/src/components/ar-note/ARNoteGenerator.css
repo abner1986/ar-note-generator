@@ -1,0 +1,235 @@
+.ar-note-generator {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.ar-note-generator h1 {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+  font-size: 2rem;
+}
+
+.ar-note-generator .subtitle {
+  color: #718096;
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+.search-section {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.search-section input {
+  flex: 1;
+  padding: 1rem 1.2rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.search-section input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.search-section button {
+  padding: 1rem 2rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+  min-width: 150px;
+}
+
+.search-section button:hover:not(:disabled) {
+  background: #5a67d8;
+}
+
+.search-section button:disabled {
+  background: #cbd5e0;
+  cursor: not-allowed;
+}
+
+.error-message {
+  padding: 1rem;
+  background: #fed7d7;
+  color: #c53030;
+  border-radius: 8px;
+  border-left: 4px solid #c53030;
+  margin-bottom: 2rem;
+}
+
+.note-workspace {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.denial-info {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.denial-info h2 {
+  color: #2d3748;
+  margin-bottom: 1rem;
+}
+
+.denial-info p {
+  color: #4a5568;
+  line-height: 1.6;
+  margin: 0.5rem 0;
+}
+
+.note-preview h3 {
+  color: #2d3748;
+  margin-bottom: 1rem;
+}
+
+.note-preview textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  margin-bottom: 1rem;
+}
+
+.note-preview textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.note-preview button {
+  padding: 1rem 2rem;
+  background: #48bb78;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.note-preview button:hover:not(:disabled) {
+  background: #38a169;
+}
+
+.note-preview button:disabled {
+  background: #cbd5e0;
+  cursor: not-allowed;
+}
+/* Add to existing ARNoteGenerator.css */
+
+.code-type-badge {
+  display: inline-block;
+  padding: 0.25rem 1rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-right: 1rem;
+  color: white;
+}
+
+.code-type-badge.CARC {
+  background: #667eea;
+}
+
+.code-type-badge.RARC {
+  background: #48bb78;
+}
+
+.code-type-badge.UNKNOWN {
+  background: #a0aec0;
+}
+
+.note-workspace {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  margin-top: 2rem;
+}
+
+.denial-info {
+  background: #f7fafc;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  border-left: 4px solid #667eea;
+}
+
+.denial-info h2 {
+  color: #2d3748;
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+}
+
+.denial-info p {
+  color: #4a5568;
+  line-height: 1.6;
+  margin: 0.5rem 0;
+}
+
+.denial-info strong {
+  color: #2d3748;
+  min-width: 120px;
+  display: inline-block;
+}
+
+.note-actions {
+  margin-top: 2rem;
+  text-align: right;
+}
+
+.copy-btn {
+  padding: 1rem 2rem;
+  background: #48bb78;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copy-btn:hover {
+  background: #38a169;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .denial-info h2 {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .code-type-badge {
+    margin-right: 0;
+  }
+  
+  .denial-info strong {
+    min-width: 100px;
+  }
+}
