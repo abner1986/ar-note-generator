@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/ar-note-generator/static/css/main.afcde552.css",
+    "main.js": "/ar-note-generator/static/js/main.abf062f9.js",
+    "index.html": "/ar-note-generator/index.html",
+    "main.afcde552.css.map": "/ar-note-generator/static/css/main.afcde552.css.map",
+    "main.abf062f9.js.map": "/ar-note-generator/static/js/main.abf062f9.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.afcde552.css",
+    "static/js/main.abf062f9.js"
+  ]
+}
