@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/ar-note-generator/static/css/main.550e4d4f.css",
-    "main.js": "/ar-note-generator/static/js/main.f7d92410.js",
+    "main.css": "/ar-note-generator/static/css/main.2c2fce4b.css",
+    "main.js": "/ar-note-generator/static/js/main.3b4c742f.js",
     "index.html": "/ar-note-generator/index.html",
-    "main.550e4d4f.css.map": "/ar-note-generator/static/css/main.550e4d4f.css.map",
-    "main.f7d92410.js.map": "/ar-note-generator/static/js/main.f7d92410.js.map"
+    "main.2c2fce4b.css.map": "/ar-note-generator/static/css/main.2c2fce4b.css.map",
+    "main.3b4c742f.js.map": "/ar-note-generator/static/js/main.3b4c742f.js.map"
   },
   "entrypoints": [
-    "static/css/main.550e4d4f.css",
-    "static/js/main.f7d92410.js"
+    "static/css/main.2c2fce4b.css",
+    "static/js/main.3b4c742f.js"
   ]
 }
