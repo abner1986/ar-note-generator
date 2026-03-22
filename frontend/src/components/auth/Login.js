@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../../api';
-import './Login.css'; // optional
+import './Login.css';
 
 function Login({ onLoginSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
