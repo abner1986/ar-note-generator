@@ -31,9 +31,9 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false // Required for Neon
   },
-  connectionTimeoutMillis: 10000, // 10 seconds timeout
+  connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000,
-  max: 20 // Maximum number of clients in the pool
+  max: 20
 });
 
 // Test database connection with retry logic
@@ -77,7 +77,6 @@ const connectWithRetry = (retries = 3) => {
   });
 };
 
-// Initial connection attempt
 connectWithRetry(3);
 
 // Simple test endpoint
@@ -89,12 +88,13 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Database test endpoint
+// Database test endpoint (includes other_denial_codes count)
 app.get('/api/test/db', async (req, res) => {
   try {
     const timeResult = await pool.query('SELECT NOW() as time');
     const carcCount = await pool.query('SELECT COUNT(*) FROM carc_codes');
     const rarcCount = await pool.query('SELECT COUNT(*) FROM rarc_codes');
+    const otherCount = await pool.query('SELECT COUNT(*) FROM other_denial_codes');
     const catCount = await pool.query('SELECT COUNT(*) FROM denial_categories');
     
     res.json({
@@ -103,6 +103,7 @@ app.get('/api/test/db', async (req, res) => {
       counts: {
         carc: carcCount.rows[0].count,
         rarc: rarcCount.rows[0].count,
+        other: otherCount.rows[0].count,
         categories: catCount.rows[0].count
       },
       message: 'Database connection successful!'
@@ -117,7 +118,7 @@ app.get('/api/test/db', async (req, res) => {
   }
 });
 
-// Get denial details by code
+// Get denial details by code (carc, rarc, other)
 app.get('/api/denial/:code', async (req, res) => {
   try {
     const { code } = req.params;
@@ -129,6 +130,10 @@ app.get('/api/denial/:code', async (req, res) => {
         c.code, 
         c.description, 
         c.resolution,
+        c.is_callable,
+        c.priority,
+        c.quick_reason,
+        c.code_family,
         cat.category_name,
         cat.workflow_type,
         cat.typical_actions,
@@ -150,6 +155,10 @@ app.get('/api/denial/:code', async (req, res) => {
         code, 
         description, 
         resolution,
+        is_callable,
+        priority,
+        quick_reason,
+        code_family,
         'RARC' as code_type,
         NULL as category_name,
         'generic' as workflow_type,
@@ -164,6 +173,31 @@ app.get('/api/denial/:code', async (req, res) => {
       return res.json(rarcResult.rows[0]);
     }
     
+    // Try OTHER denial codes (PR, OA, PI, N, M, PAYER)
+    const otherResult = await pool.query(
+      `SELECT 
+        code, 
+        description,
+        resolution,
+        is_callable,
+        priority,
+        quick_reason,
+        code_family,
+        'OTHER' as code_type,
+        cat.category_name,
+        cat.workflow_type,
+        cat.typical_actions
+       FROM other_denial_codes o
+       LEFT JOIN denial_categories cat ON o.category_id = cat.id
+       WHERE o.code = $1`,
+      [code]
+    );
+    
+    if (otherResult.rows.length > 0) {
+      console.log('✅ Found in OTHER:', otherResult.rows[0].code);
+      return res.json(otherResult.rows[0]);
+    }
+    
     console.log('❌ Code not found:', code);
     res.status(404).json({ error: 'Code not found' });
   } catch (err) {
@@ -172,7 +206,7 @@ app.get('/api/denial/:code', async (req, res) => {
   }
 });
 
-// Search codes with optional type filter
+// Search codes with optional type filter (carc, rarc, other, all)
 app.get('/api/search', async (req, res) => {
   const { q, type } = req.query;
   console.log(`🔍 Searching for: ${q} in ${type || 'all'} codes`);
@@ -188,8 +222,13 @@ app.get('/api/search', async (req, res) => {
           description,
           resolution,
           'CARC' as code_type,
+          is_callable,
+          priority,
+          quick_reason,
+          code_family,
           cat.category_name,
-          cat.workflow_type
+          cat.workflow_type,
+          cat.typical_actions
         FROM carc_codes c
         LEFT JOIN denial_categories cat ON c.category_id = cat.id
         WHERE c.code ILIKE $1 OR c.description ILIKE $1
@@ -210,8 +249,13 @@ app.get('/api/search', async (req, res) => {
           description,
           resolution,
           'RARC' as code_type,
+          is_callable,
+          priority,
+          quick_reason,
+          code_family,
           NULL as category_name,
-          'generic' as workflow_type
+          'generic' as workflow_type,
+          NULL as typical_actions
         FROM rarc_codes 
         WHERE code ILIKE $1 OR description ILIKE $1
         ORDER BY 
@@ -224,15 +268,48 @@ app.get('/api/search', async (req, res) => {
       `;
       params.push(`${q}%`);
     }
+    else if (type === 'other') {
+      query = `
+        SELECT 
+          code, 
+          description,
+          resolution,
+          'OTHER' as code_type,
+          is_callable,
+          priority,
+          quick_reason,
+          code_family,
+          cat.category_name,
+          cat.workflow_type,
+          cat.typical_actions
+        FROM other_denial_codes o
+        LEFT JOIN denial_categories cat ON o.category_id = cat.id
+        WHERE o.code ILIKE $1 OR o.description ILIKE $1
+        ORDER BY 
+          CASE 
+            WHEN o.code ILIKE $2 THEN 1 
+            ELSE 2 
+          END,
+          o.code
+        LIMIT 50
+      `;
+      params.push(`${q}%`);
+    }
     else {
+      // search all three (default)
       query = `
         SELECT 
           code, 
           description,
           resolution,
           'CARC' as code_type,
+          is_callable,
+          priority,
+          quick_reason,
+          code_family,
           cat.category_name,
-          cat.workflow_type
+          cat.workflow_type,
+          cat.typical_actions
         FROM carc_codes c
         LEFT JOIN denial_categories cat ON c.category_id = cat.id
         WHERE c.code ILIKE $1 OR c.description ILIKE $1
@@ -242,10 +319,31 @@ app.get('/api/search', async (req, res) => {
           description,
           resolution,
           'RARC' as code_type,
+          is_callable,
+          priority,
+          quick_reason,
+          code_family,
           NULL as category_name,
-          'generic' as workflow_type
+          'generic' as workflow_type,
+          NULL as typical_actions
         FROM rarc_codes 
         WHERE code ILIKE $1 OR description ILIKE $1
+        UNION ALL
+        SELECT 
+          code, 
+          description,
+          resolution,
+          'OTHER' as code_type,
+          is_callable,
+          priority,
+          quick_reason,
+          code_family,
+          cat.category_name,
+          cat.workflow_type,
+          cat.typical_actions
+        FROM other_denial_codes o
+        LEFT JOIN denial_categories cat ON o.category_id = cat.id
+        WHERE o.code ILIKE $1 OR o.description ILIKE $1
         ORDER BY code_type, code
         LIMIT 50
       `;
@@ -269,6 +367,28 @@ app.get('/api/categories', async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error('❌ Error fetching categories:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// (Optional) Get all denial codes (for sidebar selector)
+app.get('/api/all-denial-codes', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT code, description, code_type, is_callable, priority, quick_reason, code_family
+      FROM (
+        SELECT code, description, 'CARC' as code_type, is_callable, priority, quick_reason, code_family FROM carc_codes
+        UNION ALL
+        SELECT code, description, 'RARC' as code_type, is_callable, priority, quick_reason, code_family FROM rarc_codes
+        UNION ALL
+        SELECT code, description, 'OTHER' as code_type, is_callable, priority, quick_reason, code_family FROM other_denial_codes
+      ) AS all_codes
+      ORDER BY code_type, code
+      LIMIT 1000
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('❌ Error fetching all codes:', err);
     res.status(500).json({ error: err.message });
   }
 });
