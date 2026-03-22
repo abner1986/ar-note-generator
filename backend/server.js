@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const dns = require('dns');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
@@ -28,9 +30,7 @@ console.log('🔍 Database host:', process.env.DATABASE_URL.split('@')[1]?.split
 // Create connection pool with timeout and retry settings
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false // Required for Neon
-  },
+  ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000,
   max: 20
@@ -41,7 +41,6 @@ const connectWithRetry = (retries = 3) => {
   pool.connect((err, client, release) => {
     if (err) {
       console.error('❌ Database connection error:', err.message);
-      
       if (err.message.includes('ENOTFOUND')) {
         console.error('\n🔧 DNS RESOLUTION ERROR - FIXES:');
         console.error('1. Try using direct connection (remove -pooler from hostname)');
@@ -62,7 +61,6 @@ const connectWithRetry = (retries = 3) => {
       } else if (err.message.includes('password')) {
         console.error('🔑 Password error - check your credentials in .env');
       }
-      
       if (retries > 0) {
         console.log(`\n🔄 Retrying connection... (${retries} attempts left)`);
         setTimeout(() => connectWithRetry(retries - 1), 3000);
@@ -76,10 +74,9 @@ const connectWithRetry = (retries = 3) => {
     }
   });
 };
-
 connectWithRetry(3);
 
-// Simple test endpoint
+// ==================== Public Endpoints ====================
 app.get('/api/test', (req, res) => {
   res.json({ 
     message: 'Server is running!',
@@ -88,7 +85,6 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Database test endpoint (includes other_denial_codes count)
 app.get('/api/test/db', async (req, res) => {
   try {
     const timeResult = await pool.query('SELECT NOW() as time');
@@ -96,7 +92,6 @@ app.get('/api/test/db', async (req, res) => {
     const rarcCount = await pool.query('SELECT COUNT(*) FROM rarc_codes');
     const otherCount = await pool.query('SELECT COUNT(*) FROM other_denial_codes');
     const catCount = await pool.query('SELECT COUNT(*) FROM denial_categories');
-    
     res.json({
       connected: true,
       time: timeResult.rows[0].time,
@@ -118,261 +113,78 @@ app.get('/api/test/db', async (req, res) => {
   }
 });
 
-// Get denial details by code (carc, rarc, other)
-app.get('/api/denial/:code', async (req, res) => {
+// ==================== Authentication Endpoints ====================
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+const SALT_ROUNDS = 10;
+
+app.post('/api/auth/register', async (req, res) => {
+  const { username, email, password } = req.body;
+  if (!username || !email || !password) {
+    return res.status(400).json({ error: 'Username, email and password required' });
+  }
   try {
-    const { code } = req.params;
-    console.log('🔍 Searching for code:', code);
-    
-    // Try CARC first with category join
-    const carcResult = await pool.query(
-      `SELECT 
-        c.code, 
-        c.description, 
-        c.resolution,
-        c.is_callable,
-        c.priority,
-        c.quick_reason,
-        c.code_family,
-        cat.category_name,
-        cat.workflow_type,
-        cat.typical_actions,
-        'CARC' as code_type
-       FROM carc_codes c
-       LEFT JOIN denial_categories cat ON c.category_id = cat.id
-       WHERE c.code = $1`,
-      [code]
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE username = $1 OR email = $2',
+      [username, email]
     );
-    
-    if (carcResult.rows.length > 0) {
-      console.log('✅ Found in CARC:', carcResult.rows[0].code);
-      return res.json(carcResult.rows[0]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'Username or email already taken' });
     }
-    
-    // Try RARC
-    const rarcResult = await pool.query(
-      `SELECT 
-        code, 
-        description, 
-        resolution,
-        is_callable,
-        priority,
-        quick_reason,
-        code_family,
-        'RARC' as code_type,
-        NULL as category_name,
-        'generic' as workflow_type,
-        NULL as typical_actions
-       FROM rarc_codes 
-       WHERE code = $1`,
-      [code]
+    const hash = await bcrypt.hash(password, SALT_ROUNDS);
+    const result = await pool.query(
+      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email',
+      [username, email, hash]
     );
-    
-    if (rarcResult.rows.length > 0) {
-      console.log('✅ Found in RARC:', rarcResult.rows[0].code);
-      return res.json(rarcResult.rows[0]);
-    }
-    
-    // Try OTHER denial codes (PR, OA, PI, N, M, PAYER)
-    const otherResult = await pool.query(
-      `SELECT 
-        code, 
-        description,
-        resolution,
-        is_callable,
-        priority,
-        quick_reason,
-        code_family,
-        'OTHER' as code_type,
-        cat.category_name,
-        cat.workflow_type,
-        cat.typical_actions
-       FROM other_denial_codes o
-       LEFT JOIN denial_categories cat ON o.category_id = cat.id
-       WHERE o.code = $1`,
-      [code]
-    );
-    
-    if (otherResult.rows.length > 0) {
-      console.log('✅ Found in OTHER:', otherResult.rows[0].code);
-      return res.json(otherResult.rows[0]);
-    }
-    
-    console.log('❌ Code not found:', code);
-    res.status(404).json({ error: 'Code not found' });
+    const user = result.rows[0];
+    const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
-    console.error('❌ Database error:', err);
-    res.status(500).json({ error: err.message });
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Search codes with optional type filter (carc, rarc, other, all)
-app.get('/api/search', async (req, res) => {
-  const { q, type } = req.query;
-  console.log(`🔍 Searching for: ${q} in ${type || 'all'} codes`);
-  
-  try {
-    let query;
-    let params = [`%${q}%`];
-    
-    if (type === 'carc') {
-      query = `
-        SELECT 
-          code, 
-          description,
-          resolution,
-          'CARC' as code_type,
-          is_callable,
-          priority,
-          quick_reason,
-          code_family,
-          cat.category_name,
-          cat.workflow_type,
-          cat.typical_actions
-        FROM carc_codes c
-        LEFT JOIN denial_categories cat ON c.category_id = cat.id
-        WHERE c.code ILIKE $1 OR c.description ILIKE $1
-        ORDER BY 
-          CASE 
-            WHEN c.code ILIKE $2 THEN 1 
-            ELSE 2 
-          END,
-          c.code
-        LIMIT 50
-      `;
-      params.push(`${q}%`);
-    } 
-    else if (type === 'rarc') {
-      query = `
-        SELECT 
-          code, 
-          description,
-          resolution,
-          'RARC' as code_type,
-          is_callable,
-          priority,
-          quick_reason,
-          code_family,
-          NULL as category_name,
-          'generic' as workflow_type,
-          NULL as typical_actions
-        FROM rarc_codes 
-        WHERE code ILIKE $1 OR description ILIKE $1
-        ORDER BY 
-          CASE 
-            WHEN code ILIKE $2 THEN 1 
-            ELSE 2 
-          END,
-          code
-        LIMIT 50
-      `;
-      params.push(`${q}%`);
-    }
-    else if (type === 'other') {
-      query = `
-        SELECT 
-          code, 
-          description,
-          resolution,
-          'OTHER' as code_type,
-          is_callable,
-          priority,
-          quick_reason,
-          code_family,
-          cat.category_name,
-          cat.workflow_type,
-          cat.typical_actions
-        FROM other_denial_codes o
-        LEFT JOIN denial_categories cat ON o.category_id = cat.id
-        WHERE o.code ILIKE $1 OR o.description ILIKE $1
-        ORDER BY 
-          CASE 
-            WHEN o.code ILIKE $2 THEN 1 
-            ELSE 2 
-          END,
-          o.code
-        LIMIT 50
-      `;
-      params.push(`${q}%`);
-    }
-    else {
-      // search all three (default)
-      query = `
-        SELECT 
-          code, 
-          description,
-          resolution,
-          'CARC' as code_type,
-          is_callable,
-          priority,
-          quick_reason,
-          code_family,
-          cat.category_name,
-          cat.workflow_type,
-          cat.typical_actions
-        FROM carc_codes c
-        LEFT JOIN denial_categories cat ON c.category_id = cat.id
-        WHERE c.code ILIKE $1 OR c.description ILIKE $1
-        UNION ALL
-        SELECT 
-          code, 
-          description,
-          resolution,
-          'RARC' as code_type,
-          is_callable,
-          priority,
-          quick_reason,
-          code_family,
-          NULL as category_name,
-          'generic' as workflow_type,
-          NULL as typical_actions
-        FROM rarc_codes 
-        WHERE code ILIKE $1 OR description ILIKE $1
-        UNION ALL
-        SELECT 
-          code, 
-          description,
-          resolution,
-          'OTHER' as code_type,
-          is_callable,
-          priority,
-          quick_reason,
-          code_family,
-          cat.category_name,
-          cat.workflow_type,
-          cat.typical_actions
-        FROM other_denial_codes o
-        LEFT JOIN denial_categories cat ON o.category_id = cat.id
-        WHERE o.code ILIKE $1 OR o.description ILIKE $1
-        ORDER BY code_type, code
-        LIMIT 50
-      `;
-    }
-    
-    const result = await pool.query(query, params);
-    console.log(`✅ Found ${result.rows.length} results`);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('❌ Search error:', err);
-    res.status(500).json({ error: err.message });
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
   }
-});
-
-// Get all categories
-app.get('/api/categories', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, category_name, workflow_type, typical_actions FROM denial_categories ORDER BY category_name'
+      'SELECT id, username, email, password_hash FROM users WHERE username = $1',
+      [username]
     );
-    res.json(result.rows);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const user = result.rows[0];
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
-    console.error('❌ Error fetching categories:', err);
-    res.status(500).json({ error: err.message });
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// (Optional) Get all denial codes (for sidebar selector)
-app.get('/api/all-denial-codes', async (req, res) => {
+// ==================== Authentication Middleware ====================
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access denied' });
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Invalid token' });
+    req.user = user;
+    next();
+  });
+};
+
+// ==================== Protected Endpoints ====================
+// Get all denial codes (requires authentication)
+app.get('/api/all-denial-codes', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT code, description, code_type, is_callable, priority, quick_reason, code_family
@@ -393,7 +205,156 @@ app.get('/api/all-denial-codes', async (req, res) => {
   }
 });
 
-// Health check endpoint
+// Get denial details by code (public – you can also protect later)
+app.get('/api/denial/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    console.log('🔍 Searching for code:', code);
+    
+    // Try CARC first with category join
+    const carcResult = await pool.query(
+      `SELECT 
+        c.code, c.description, c.resolution,
+        c.is_callable, c.priority, c.quick_reason, c.code_family,
+        cat.category_name, cat.workflow_type, cat.typical_actions,
+        'CARC' as code_type
+       FROM carc_codes c
+       LEFT JOIN denial_categories cat ON c.category_id = cat.id
+       WHERE c.code = $1`,
+      [code]
+    );
+    if (carcResult.rows.length > 0) {
+      console.log('✅ Found in CARC:', carcResult.rows[0].code);
+      return res.json(carcResult.rows[0]);
+    }
+    
+    // Try RARC
+    const rarcResult = await pool.query(
+      `SELECT code, description, resolution,
+        is_callable, priority, quick_reason, code_family,
+        'RARC' as code_type,
+        NULL as category_name, 'generic' as workflow_type, NULL as typical_actions
+       FROM rarc_codes WHERE code = $1`,
+      [code]
+    );
+    if (rarcResult.rows.length > 0) {
+      console.log('✅ Found in RARC:', rarcResult.rows[0].code);
+      return res.json(rarcResult.rows[0]);
+    }
+    
+    // Try OTHER denial codes (PR, OA, PI, N, M, PAYER)
+    const otherResult = await pool.query(
+      `SELECT o.code, o.description, o.resolution,
+        o.is_callable, o.priority, o.quick_reason, o.code_family,
+        'OTHER' as code_type,
+        cat.category_name, cat.workflow_type, cat.typical_actions
+       FROM other_denial_codes o
+       LEFT JOIN denial_categories cat ON o.category_id = cat.id
+       WHERE o.code = $1`,
+      [code]
+    );
+    if (otherResult.rows.length > 0) {
+      console.log('✅ Found in OTHER:', otherResult.rows[0].code);
+      return res.json(otherResult.rows[0]);
+    }
+    
+    console.log('❌ Code not found:', code);
+    res.status(404).json({ error: 'Code not found' });
+  } catch (err) {
+    console.error('❌ Database error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Search codes (public – you can protect if desired)
+app.get('/api/search', async (req, res) => {
+  const { q, type } = req.query;
+  console.log(`🔍 Searching for: ${q} in ${type || 'all'} codes`);
+  
+  try {
+    let query;
+    let params = [`%${q}%`];
+    if (type === 'carc') {
+      query = `
+        SELECT code, description, resolution, 'CARC' as code_type,
+               is_callable, priority, quick_reason, code_family,
+               cat.category_name, cat.workflow_type, cat.typical_actions
+        FROM carc_codes c
+        LEFT JOIN denial_categories cat ON c.category_id = cat.id
+        WHERE c.code ILIKE $1 OR c.description ILIKE $1
+        ORDER BY CASE WHEN c.code ILIKE $2 THEN 1 ELSE 2 END, c.code
+        LIMIT 50
+      `;
+      params.push(`${q}%`);
+    } else if (type === 'rarc') {
+      query = `
+        SELECT code, description, resolution, 'RARC' as code_type,
+               is_callable, priority, quick_reason, code_family
+        FROM rarc_codes
+        WHERE code ILIKE $1 OR description ILIKE $1
+        ORDER BY CASE WHEN code ILIKE $2 THEN 1 ELSE 2 END, code
+        LIMIT 50
+      `;
+      params.push(`${q}%`);
+    } else if (type === 'other') {
+      query = `
+        SELECT code, description, resolution, 'OTHER' as code_type,
+               is_callable, priority, quick_reason, code_family,
+               cat.category_name, cat.workflow_type, cat.typical_actions
+        FROM other_denial_codes o
+        LEFT JOIN denial_categories cat ON o.category_id = cat.id
+        WHERE o.code ILIKE $1 OR o.description ILIKE $1
+        ORDER BY CASE WHEN o.code ILIKE $2 THEN 1 ELSE 2 END, o.code
+        LIMIT 50
+      `;
+      params.push(`${q}%`);
+    } else {
+      query = `
+        SELECT code, description, resolution, 'CARC' as code_type,
+               is_callable, priority, quick_reason, code_family,
+               cat.category_name, cat.workflow_type, cat.typical_actions
+        FROM carc_codes c
+        LEFT JOIN denial_categories cat ON c.category_id = cat.id
+        WHERE c.code ILIKE $1 OR c.description ILIKE $1
+        UNION ALL
+        SELECT code, description, resolution, 'RARC' as code_type,
+               is_callable, priority, quick_reason, code_family
+        FROM rarc_codes
+        WHERE code ILIKE $1 OR description ILIKE $1
+        UNION ALL
+        SELECT code, description, resolution, 'OTHER' as code_type,
+               is_callable, priority, quick_reason, code_family,
+               cat.category_name, cat.workflow_type, cat.typical_actions
+        FROM other_denial_codes o
+        LEFT JOIN denial_categories cat ON o.category_id = cat.id
+        WHERE o.code ILIKE $1 OR o.description ILIKE $1
+        ORDER BY code_type, code
+        LIMIT 50
+      `;
+    }
+    const result = await pool.query(query, params);
+    console.log(`✅ Found ${result.rows.length} results`);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('❌ Search error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all categories (public)
+app.get('/api/categories', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, category_name, workflow_type, typical_actions FROM denial_categories ORDER BY category_name'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('❌ Error fetching categories:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Health check endpoint (public)
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
