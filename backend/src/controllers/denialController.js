@@ -1,11 +1,9 @@
+// backend/src/controllers/denialController.js
+
 const pool = require('../config/database');
 
 exports.test = (req, res) => {
-  res.json({ 
-    message: 'Server is running!',
-    timestamp: new Date().toISOString(),
-    database: process.env.DATABASE_URL ? 'Configured' : 'Missing'
-  });
+  res.json({ message: 'Server is running!' });
 };
 
 exports.testDb = async (req, res) => {
@@ -28,15 +26,11 @@ exports.testDb = async (req, res) => {
     });
   } catch (err) {
     console.error('❌ Database test error:', err.message);
-    res.status(500).json({ 
-      connected: false, 
-      error: err.message,
-      message: 'Database connection failed'
-    });
+    res.status(500).json({ connected: false, error: err.message });
   }
 };
 
-exports.getAllCodes = async (req, res) => {
+exports.getAllDenialCodes = async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT code, description, code_type, is_callable, priority, quick_reason, code_family
@@ -58,11 +52,10 @@ exports.getAllCodes = async (req, res) => {
 };
 
 exports.getDenialByCode = async (req, res) => {
+  const { code } = req.params;
+  console.log('🔍 Searching for code:', code);
   try {
-    const { code } = req.params;
-    console.log('🔍 Searching for code:', code);
-    
-    // Try CARC first with category join
+    // Try CARC
     const carcResult = await pool.query(
       `SELECT 
         c.code, c.description, c.resolution,
@@ -74,11 +67,8 @@ exports.getDenialByCode = async (req, res) => {
        WHERE c.code = $1`,
       [code]
     );
-    if (carcResult.rows.length > 0) {
-      console.log('✅ Found in CARC:', carcResult.rows[0].code);
-      return res.json(carcResult.rows[0]);
-    }
-    
+    if (carcResult.rows.length) return res.json(carcResult.rows[0]);
+
     // Try RARC
     const rarcResult = await pool.query(
       `SELECT code, description, resolution,
@@ -88,12 +78,9 @@ exports.getDenialByCode = async (req, res) => {
        FROM rarc_codes WHERE code = $1`,
       [code]
     );
-    if (rarcResult.rows.length > 0) {
-      console.log('✅ Found in RARC:', rarcResult.rows[0].code);
-      return res.json(rarcResult.rows[0]);
-    }
-    
-    // Try OTHER denial codes
+    if (rarcResult.rows.length) return res.json(rarcResult.rows[0]);
+
+    // Try OTHER
     const otherResult = await pool.query(
       `SELECT o.code, o.description, o.resolution,
         o.is_callable, o.priority, o.quick_reason, o.code_family,
@@ -104,12 +91,8 @@ exports.getDenialByCode = async (req, res) => {
        WHERE o.code = $1`,
       [code]
     );
-    if (otherResult.rows.length > 0) {
-      console.log('✅ Found in OTHER:', otherResult.rows[0].code);
-      return res.json(otherResult.rows[0]);
-    }
-    
-    console.log('❌ Code not found:', code);
+    if (otherResult.rows.length) return res.json(otherResult.rows[0]);
+
     res.status(404).json({ error: 'Code not found' });
   } catch (err) {
     console.error('❌ Database error:', err);
@@ -120,7 +103,6 @@ exports.getDenialByCode = async (req, res) => {
 exports.searchCodes = async (req, res) => {
   const { q, type } = req.query;
   console.log(`🔍 Searching for: ${q} in ${type || 'all'} codes`);
-  
   try {
     let query;
     let params = [`%${q}%`];
@@ -139,7 +121,8 @@ exports.searchCodes = async (req, res) => {
     } else if (type === 'rarc') {
       query = `
         SELECT code, description, resolution, 'RARC' as code_type,
-               is_callable, priority, quick_reason, code_family
+               is_callable, priority, quick_reason, code_family,
+               NULL as category_name, NULL as workflow_type, NULL as typical_actions
         FROM rarc_codes
         WHERE code ILIKE $1 OR description ILIKE $1
         ORDER BY CASE WHEN code ILIKE $2 THEN 1 ELSE 2 END, code
@@ -168,7 +151,8 @@ exports.searchCodes = async (req, res) => {
         WHERE c.code ILIKE $1 OR c.description ILIKE $1
         UNION ALL
         SELECT code, description, resolution, 'RARC' as code_type,
-               is_callable, priority, quick_reason, code_family
+               is_callable, priority, quick_reason, code_family,
+               NULL as category_name, NULL as workflow_type, NULL as typical_actions
         FROM rarc_codes
         WHERE code ILIKE $1 OR description ILIKE $1
         UNION ALL
@@ -183,7 +167,6 @@ exports.searchCodes = async (req, res) => {
       `;
     }
     const result = await pool.query(query, params);
-    console.log(`✅ Found ${result.rows.length} results`);
     res.json(result.rows);
   } catch (err) {
     console.error('❌ Search error:', err);
