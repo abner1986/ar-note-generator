@@ -29,6 +29,10 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
+app.get('/api/all-denial-codes-test', (req, res) => {
+  res.json({ message: 'Test route works' });
+});
+
 app.use(errorHandler);
 
 module.exports = app;

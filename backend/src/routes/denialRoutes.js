@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const denialController = require('../controllers/denialController');
 
+console.log('✅ /api/all-denial-codes route registered');
 router.get('/test', denialController.test);
 router.get('/test/db', denialController.testDb);
 router.get('/all-denial-codes', denialController.getAllDenialCodes);
