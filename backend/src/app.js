@@ -29,6 +29,7 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
+console.log('🔧 Registering test route /api/all-denial-codes-test');
 app.get('/api/all-denial-codes-test', (req, res) => {
   res.json({ message: 'Test route works' });
 });
