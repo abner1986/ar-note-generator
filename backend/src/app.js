@@ -21,6 +21,10 @@ app.use(express.json());
 app.use('/api', denialRoutes);
 app.use('/api/auth', authRoutes);
 
+app.get('/api/hello', (req, res) => {
+  res.json({ message: 'Hello from Vercel!' });
+});
+
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
